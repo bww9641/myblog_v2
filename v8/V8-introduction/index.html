@@ -1,0 +1,755 @@
+<!doctype html>
+<!--
+  Minimal Mistakes Jekyll Theme 4.26.1 by Michael Rose
+  Copyright 2013-2024 Michael Rose - mademistakes.com | @mmistakes
+  Free for personal and commercial use under the MIT license
+  https://github.com/mmistakes/minimal-mistakes/blob/master/LICENSE
+-->
+
+<html lang="en" class="no-js">
+  <head>
+    <meta charset="utf-8">
+
+<!-- begin _includes/seo.html --><title>[V8 Study] 00-introduction - Hacky Life &amp; Writeup</title>
+<meta name="description" content="[!] 우선적으로 한글로 작성하여 추후 번역할 예정.  Summary 우리가 대중적으로 사용하는 Google Chrome browser에는 웹페이지를 동적으로 실행시키기 위해 javascript가 구동될 수 있도록 지원하고 있다. 그렇다면, JS를 원활하게 실행하고 컴파일하는 역할은 어떤 것이 맡고 있을까? 이 챕터에서는 내가 공부했던 chromium javascript engine인 V8에 대해서 알아보고자 한다.  V8의 구조는 어떻게 되어 있을까?  V8같은 경우 Chrome 구동 시 하나의 프로세스로 실행되어 heap 및 stack 메모리 영역을 관리하면서 Javascript의 각종 변수와 메소드를 실행하는 가장 핵심적인 execution file로 동작한다. 이외에 Task/Callback queue, Microtask queue, WebAPI 등 다양한 요소가 Chromium browser를 구성하고 동작하는데 사용된다.  가장 대표적인 역할은 javascript 코드를 컴파일된 컴퓨터에 최적화된 코드로 변환시켜 전달하게 된다는 것이다. 이때 JIT(Just-In-Time) Compiler라는 독창적인 컴파일러를 사용한다.  V8만의 특징은 무엇이 있을까?   우선 인터프리터와 컴파일러에 대해 알아야 할 것이다.    인터프리터            장점 : 한 줄 한 줄 변환하기 때문에 실행 속도가 빠르다.       단점 : 자바스크립트 코드가 복잡해질수록 점점 속도가 느려진다. 예를 들어, 같은 코드를 여러차례 반복하는 반복문의 경우, 같은 결과를 반복하는 것임에도 불구하고 코드를 한 줄 한 줄 읽는 방식에 의해 그때그때 실행된다.           컴파일러            장점 : 파일 전체를 한번에 읽어서 컴파일러는 작업을 단순화시킨다. 예를 들어 특정 함수를 10억번 반복해야 할 경우, 컴파일 과정에서 함수를 반복하는 것이 아니라 함수의 결과물을 반복하도록 컴파일 한다. 이처럼 불필요한 동작을 제거하는 컴파일러의 방식을 최적화, optimization이라고 한다. (인터프리터는 optimize하지 않는다 )       단점 : 코드를 바로 실행하지 않고, 코드 실행 전 전체를 컴파일 하는 과정이 필요하기 때문에 초기에 속도가 느릴 수 밖에 없다.           자바스크립트 엔진의 내부를 공부하다가 잠시 인터프리터와 컴파일러의 간단한 개념과 장단점을 짚어봤다. 그러면 과연 V8 엔진은 어떤 방식을 취했길래 다른 자바스크립트 엔진보다 더 빠르고 효율적으로 자바스크립트 명령을 수행할 수 있을까? 바로 여기에서 V8 엔진의 독특한 언어 변환 도구인 JIT Compiler가 들어온다. JIT은 Just In Time의 약자이다.  JIT Compiler의 구조   V8 엔진은 다음과 같은 구조로 되어 있다.    Parser : 코드를 Lexical Analysis라는 과정을 통해 토큰으로 분해한다.   AST(Abstract Syntax Tree) : Parser에서 분해된 토큰을 바탕으로 추상적인 트리를 생성한다.   Ignition : AST에서 나온 트리를 V8의 인터프리터인 ignition에게 전달하고 이것을 인터프리터는 bytecode로 변환시킨다. (High-level Lang to Low-level Lang)   TurboFan, Profiler : bytecode를 실행하여 Human-readable Lang을 실행시키고, 그중 자주 사용되는 코드라고 판별된 코드 조각은 TurboFan으로 보내져 최적화를 수행하여 새로운 컴파일된 코드로 재구성된다. (이때 자주 사용되는 코드라는 말이 매우 추상적이므로 Profiler 라는 친구한테 사용 빈도 수 등을 수집하게끔 역할을 부여하고, 모인 데이터를 통해 Turbofan의 알고리즘대로 최적화를 한다)   Turbofan은 어떤 조건으로 최적화하는 걸까?         코드가 뜨겁고 안정적인 것, 쉽게 말하면 자주 호출되고(뜨겁고) 코드가 안 변함(안정적)이라는 것이다. 매번 같은 행동을 수행하는 반복문 내에 있는 코드 같은 경우가 여기에 해당하기 쉽다.           인터프리팅된 바이트 코드의 길이를 보고 특정 임계점을 넘기지 않으면 작은 함수라고 판단해서 최적화를 진행하는 것이다. 작고 단순한 함수는 크고 복잡한 함수보다 동작이 매우 추상적이거나 제한적인 확률이 높기 때문에 안정적이라고 볼 수 있다.      [!] 그러나, 컴파일러는 100% 완벽하지 못하기 때문에 의도와 다르게 발적화(deoptimization)가 일어날 수도 있다.  Next Topic 다음에는 V8에서 자료형이나 JS의 다양한 메소드가 어떤 식으로 저장이 되고 불러올 수 있는지를 알아보고자 한다.  reference    https://dkwjdi.tistory.com/194   https://github.com/danbev/learning-v8/blob/master/notes/intro.md">
+
+
+  <meta name="author" content="st4rlight (Ainsetin)">
+  
+  <meta property="article:author" content="st4rlight (Ainsetin)">
+  
+
+
+<meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="Hacky Life & Writeup">
+<meta property="og:title" content="[V8 Study] 00-introduction">
+<meta property="og:url" content="http://localhost:4000/v8/V8-introduction/">
+
+
+  <meta property="og:description" content="[!] 우선적으로 한글로 작성하여 추후 번역할 예정.  Summary 우리가 대중적으로 사용하는 Google Chrome browser에는 웹페이지를 동적으로 실행시키기 위해 javascript가 구동될 수 있도록 지원하고 있다. 그렇다면, JS를 원활하게 실행하고 컴파일하는 역할은 어떤 것이 맡고 있을까? 이 챕터에서는 내가 공부했던 chromium javascript engine인 V8에 대해서 알아보고자 한다.  V8의 구조는 어떻게 되어 있을까?  V8같은 경우 Chrome 구동 시 하나의 프로세스로 실행되어 heap 및 stack 메모리 영역을 관리하면서 Javascript의 각종 변수와 메소드를 실행하는 가장 핵심적인 execution file로 동작한다. 이외에 Task/Callback queue, Microtask queue, WebAPI 등 다양한 요소가 Chromium browser를 구성하고 동작하는데 사용된다.  가장 대표적인 역할은 javascript 코드를 컴파일된 컴퓨터에 최적화된 코드로 변환시켜 전달하게 된다는 것이다. 이때 JIT(Just-In-Time) Compiler라는 독창적인 컴파일러를 사용한다.  V8만의 특징은 무엇이 있을까?   우선 인터프리터와 컴파일러에 대해 알아야 할 것이다.    인터프리터            장점 : 한 줄 한 줄 변환하기 때문에 실행 속도가 빠르다.       단점 : 자바스크립트 코드가 복잡해질수록 점점 속도가 느려진다. 예를 들어, 같은 코드를 여러차례 반복하는 반복문의 경우, 같은 결과를 반복하는 것임에도 불구하고 코드를 한 줄 한 줄 읽는 방식에 의해 그때그때 실행된다.           컴파일러            장점 : 파일 전체를 한번에 읽어서 컴파일러는 작업을 단순화시킨다. 예를 들어 특정 함수를 10억번 반복해야 할 경우, 컴파일 과정에서 함수를 반복하는 것이 아니라 함수의 결과물을 반복하도록 컴파일 한다. 이처럼 불필요한 동작을 제거하는 컴파일러의 방식을 최적화, optimization이라고 한다. (인터프리터는 optimize하지 않는다 )       단점 : 코드를 바로 실행하지 않고, 코드 실행 전 전체를 컴파일 하는 과정이 필요하기 때문에 초기에 속도가 느릴 수 밖에 없다.           자바스크립트 엔진의 내부를 공부하다가 잠시 인터프리터와 컴파일러의 간단한 개념과 장단점을 짚어봤다. 그러면 과연 V8 엔진은 어떤 방식을 취했길래 다른 자바스크립트 엔진보다 더 빠르고 효율적으로 자바스크립트 명령을 수행할 수 있을까? 바로 여기에서 V8 엔진의 독특한 언어 변환 도구인 JIT Compiler가 들어온다. JIT은 Just In Time의 약자이다.  JIT Compiler의 구조   V8 엔진은 다음과 같은 구조로 되어 있다.    Parser : 코드를 Lexical Analysis라는 과정을 통해 토큰으로 분해한다.   AST(Abstract Syntax Tree) : Parser에서 분해된 토큰을 바탕으로 추상적인 트리를 생성한다.   Ignition : AST에서 나온 트리를 V8의 인터프리터인 ignition에게 전달하고 이것을 인터프리터는 bytecode로 변환시킨다. (High-level Lang to Low-level Lang)   TurboFan, Profiler : bytecode를 실행하여 Human-readable Lang을 실행시키고, 그중 자주 사용되는 코드라고 판별된 코드 조각은 TurboFan으로 보내져 최적화를 수행하여 새로운 컴파일된 코드로 재구성된다. (이때 자주 사용되는 코드라는 말이 매우 추상적이므로 Profiler 라는 친구한테 사용 빈도 수 등을 수집하게끔 역할을 부여하고, 모인 데이터를 통해 Turbofan의 알고리즘대로 최적화를 한다)   Turbofan은 어떤 조건으로 최적화하는 걸까?         코드가 뜨겁고 안정적인 것, 쉽게 말하면 자주 호출되고(뜨겁고) 코드가 안 변함(안정적)이라는 것이다. 매번 같은 행동을 수행하는 반복문 내에 있는 코드 같은 경우가 여기에 해당하기 쉽다.           인터프리팅된 바이트 코드의 길이를 보고 특정 임계점을 넘기지 않으면 작은 함수라고 판단해서 최적화를 진행하는 것이다. 작고 단순한 함수는 크고 복잡한 함수보다 동작이 매우 추상적이거나 제한적인 확률이 높기 때문에 안정적이라고 볼 수 있다.      [!] 그러나, 컴파일러는 100% 완벽하지 못하기 때문에 의도와 다르게 발적화(deoptimization)가 일어날 수도 있다.  Next Topic 다음에는 V8에서 자료형이나 JS의 다양한 메소드가 어떤 식으로 저장이 되고 불러올 수 있는지를 알아보고자 한다.  reference    https://dkwjdi.tistory.com/194   https://github.com/danbev/learning-v8/blob/master/notes/intro.md">
+
+
+
+
+
+
+
+  <meta property="article:published_time" content="2022-05-17T16:30:00+09:00">
+
+
+
+
+
+  
+
+  
+
+
+<link rel="canonical" href="http://localhost:4000/v8/V8-introduction/">
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- end _includes/seo.html -->
+
+
+
+  <link href="/feed.xml" type="application/atom+xml" rel="alternate" title="Hacky Life & Writeup Feed">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script type="text/javascript">
+  document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + ' js ';
+  window.enable_copy_code_button = true;
+</script>
+
+<!-- For all browsers -->
+<link rel="stylesheet" href="/assets/css/main.css">
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@latest/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@latest/css/all.min.css"></noscript>
+
+
+
+
+
+    <!-- start custom head snippets -->
+
+<!-- insert favicons. use https://realfavicongenerator.net/ -->
+
+<!-- end custom head snippets -->
+
+  </head>
+
+  <body class="layout--single">
+    <nav class="skip-links">
+  <ul>
+    <li><a href="#site-nav" class="screen-reader-shortcut">Skip to primary navigation</a></li>
+    <li><a href="#main" class="screen-reader-shortcut">Skip to content</a></li>
+    <li><a href="#footer" class="screen-reader-shortcut">Skip to footer</a></li>
+  </ul>
+</nav>
+
+    
+
+<div class="masthead">
+  <div class="masthead__inner-wrap">
+    <div class="masthead__menu">
+      <nav id="site-nav" class="greedy-nav">
+        
+        <a class="site-title" href="/">
+          Hacky Life & Writeup
+          
+        </a>
+        <ul class="visible-links"><li class="masthead__menu-item">
+              <a
+                href="/about/"
+                
+                
+              >About</a>
+            </li><li class="masthead__menu-item">
+              <a
+                href="/categories/ctf/"
+                
+                
+              >Note</a>
+            </li><li class="masthead__menu-item">
+              <a
+                href="/categories/ctf/"
+                
+                
+              >CTF Write-up</a>
+            </li><li class="masthead__menu-item">
+              <a
+                href="/categories/life/"
+                
+                
+              >Life</a>
+            </li><li class="masthead__menu-item">
+              <a
+                href="https://ainsetin.notion.site/Ainsetin-s-Write-up-c1a0fb95760b41508d54ce94dc3601c5"
+                
+                
+              >Notion</a>
+            </li><li class="masthead__menu-item">
+              <a
+                href="https://discord.gg/RpBGcjSWZN"
+                
+                
+              >Discord</a>
+            </li></ul>
+        
+        <button class="search__toggle" type="button">
+          <span class="visually-hidden">Toggle search</span>
+          <i class="fas fa-search"></i>
+        </button>
+        
+        <button class="greedy-nav__toggle hidden" type="button">
+          <span class="visually-hidden">Toggle menu</span>
+          <div class="navicon"></div>
+        </button>
+        <ul class="hidden-links hidden"></ul>
+      </nav>
+    </div>
+  </div>
+</div>
+
+
+    <div class="initial-content">
+      
+
+
+
+
+
+<div id="main" role="main">
+  
+  <div class="sidebar sticky">
+  
+
+
+<div itemscope itemtype="https://schema.org/Person" class="h-card">
+
+  
+    <div class="author__avatar">
+      <a href="http://localhost:4000/">
+        <img src="/assets/images/profile.jpg" alt="st4rlight (Ainsetin)" itemprop="image" class="u-photo">
+      </a>
+    </div>
+  
+
+  <div class="author__content">
+    <h3 class="author__name p-name" itemprop="name">
+      <a class="u-url" rel="me" href="http://localhost:4000/" itemprop="url">st4rlight (Ainsetin)</a>
+    </h3>
+    
+      <div class="author__bio p-note" itemprop="description">
+        <p>be the special st4rlight in the world</p>
+
+      </div>
+    
+  </div>
+
+  <div class="author__urls-wrapper">
+    <button class="btn btn--inverse">Follow</button>
+    <ul class="author__urls social-icons">
+      
+        <li itemprop="homeLocation" itemscope itemtype="https://schema.org/Place">
+          <i class="fas fa-fw fa-map-marker-alt" aria-hidden="true"></i> <span itemprop="name" class="p-locality">Seoul, Korea</span>
+        </li>
+      
+
+      
+        
+          
+        
+          
+        
+          
+            <li><a href="https://x.com/ainsetin" rel="nofollow noopener noreferrer me" itemprop="sameAs"><i class="fab fa-fw fa-twitter-square" aria-hidden="true"></i><span class="label">X</span></a></li>
+          
+        
+          
+            <li><a href="https://facebook.com/ainsetin" rel="nofollow noopener noreferrer me" itemprop="sameAs"><i class="fab fa-fw fa-facebook-square" aria-hidden="true"></i><span class="label">Facebook</span></a></li>
+          
+        
+          
+            <li><a href="https://github.com/bww9641" rel="nofollow noopener noreferrer me" itemprop="sameAs"><i class="fab fa-fw fa-github" aria-hidden="true"></i><span class="label">GitHub</span></a></li>
+          
+        
+          
+            <li><a href="https://instagram.com/st4rlight_bww" rel="nofollow noopener noreferrer me" itemprop="sameAs"><i class="fab fa-fw fa-instagram" aria-hidden="true"></i><span class="label">Instagram</span></a></li>
+          
+        
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      <!--
+  <li>
+    <a href="http://link-to-whatever-social-network.com/user/" itemprop="sameAs" rel="nofollow noopener noreferrer me">
+      <i class="fas fa-fw" aria-hidden="true"></i> Custom Social Profile Link
+    </a>
+  </li>
+-->
+    </ul>
+  </div>
+</div>
+
+  
+    
+      
+      
+      
+      
+    
+    
+      <nav class="nav__list">
+  
+  <input id="ac-toc" name="accordion-toc" type="checkbox" />
+  <label for="ac-toc">Toggle menu</label>
+  <ul class="nav__items">
+    
+      
+      
+    
+  </ul>
+</nav>
+
+    
+  
+  </div>
+
+
+
+  <article class="page" itemscope itemtype="https://schema.org/CreativeWork">
+    <meta itemprop="headline" content="[V8 Study] 00-introduction">
+    <meta itemprop="description" content="[!] 우선적으로 한글로 작성하여 추후 번역할 예정.Summary우리가 대중적으로 사용하는 Google Chrome browser에는 웹페이지를 동적으로 실행시키기 위해 javascript가 구동될 수 있도록 지원하고 있다. 그렇다면, JS를 원활하게 실행하고 컴파일하는 역할은 어떤 것이 맡고 있을까? 이 챕터에서는 내가 공부했던 chromium javascript engine인 V8에 대해서 알아보고자 한다.V8의 구조는 어떻게 되어 있을까?V8같은 경우 Chrome 구동 시 하나의 프로세스로 실행되어 heap 및 stack 메모리 영역을 관리하면서 Javascript의 각종 변수와 메소드를 실행하는 가장 핵심적인 execution file로 동작한다. 이외에 Task/Callback queue, Microtask queue, WebAPI 등 다양한 요소가 Chromium browser를 구성하고 동작하는데 사용된다.가장 대표적인 역할은 javascript 코드를 컴파일된 컴퓨터에 최적화된 코드로 변환시켜 전달하게 된다는 것이다. 이때 JIT(Just-In-Time) Compiler라는 독창적인 컴파일러를 사용한다.V8만의 특징은 무엇이 있을까?우선 인터프리터와 컴파일러에 대해 알아야 할 것이다.  인터프리터          장점 : 한 줄 한 줄 변환하기 때문에 실행 속도가 빠르다.      단점 : 자바스크립트 코드가 복잡해질수록 점점 속도가 느려진다. 예를 들어, 같은 코드를 여러차례 반복하는 반복문의 경우, 같은 결과를 반복하는 것임에도 불구하고 코드를 한 줄 한 줄 읽는 방식에 의해 그때그때 실행된다.        컴파일러          장점 : 파일 전체를 한번에 읽어서 컴파일러는 작업을 단순화시킨다. 예를 들어 특정 함수를 10억번 반복해야 할 경우, 컴파일 과정에서 함수를 반복하는 것이 아니라 함수의 결과물을 반복하도록 컴파일 한다. 이처럼 불필요한 동작을 제거하는 컴파일러의 방식을 최적화, optimization이라고 한다.(인터프리터는 optimize하지 않는다 )      단점 : 코드를 바로 실행하지 않고, 코드 실행 전 전체를 컴파일 하는 과정이 필요하기 때문에 초기에 속도가 느릴 수 밖에 없다.      자바스크립트 엔진의 내부를 공부하다가 잠시 인터프리터와 컴파일러의 간단한 개념과 장단점을 짚어봤다. 그러면 과연 V8 엔진은 어떤 방식을 취했길래 다른 자바스크립트 엔진보다 더 빠르고 효율적으로 자바스크립트 명령을 수행할 수 있을까? 바로 여기에서 V8 엔진의 독특한 언어 변환 도구인 JIT Compiler가 들어온다. JIT은 Just In Time의 약자이다.JIT Compiler의 구조V8 엔진은 다음과 같은 구조로 되어 있다.  Parser : 코드를 Lexical Analysis라는 과정을 통해 토큰으로 분해한다.  AST(Abstract Syntax Tree) : Parser에서 분해된 토큰을 바탕으로 추상적인 트리를 생성한다.  Ignition : AST에서 나온 트리를 V8의 인터프리터인 ignition에게 전달하고 이것을 인터프리터는 bytecode로 변환시킨다. (High-level Lang to Low-level Lang)  TurboFan, Profiler : bytecode를 실행하여 Human-readable Lang을 실행시키고, 그중 자주 사용되는 코드라고 판별된 코드 조각은 TurboFan으로 보내져 최적화를 수행하여 새로운 컴파일된 코드로 재구성된다. (이때 자주 사용되는 코드라는 말이 매우 추상적이므로 Profiler 라는 친구한테 사용 빈도 수 등을 수집하게끔 역할을 부여하고, 모인 데이터를 통해 Turbofan의 알고리즘대로 최적화를 한다)Turbofan은 어떤 조건으로 최적화하는 걸까?      코드가 뜨겁고 안정적인 것, 쉽게 말하면 자주 호출되고(뜨겁고) 코드가 안 변함(안정적)이라는 것이다. 매번 같은 행동을 수행하는 반복문 내에 있는 코드 같은 경우가 여기에 해당하기 쉽다.        인터프리팅된 바이트 코드의 길이를 보고 특정 임계점을 넘기지 않으면 작은 함수라고 판단해서 최적화를 진행하는 것이다. 작고 단순한 함수는 크고 복잡한 함수보다 동작이 매우 추상적이거나 제한적인 확률이 높기 때문에 안정적이라고 볼 수 있다.  [!] 그러나, 컴파일러는 100% 완벽하지 못하기 때문에 의도와 다르게 발적화(deoptimization)가 일어날 수도 있다.Next Topic다음에는 V8에서 자료형이나 JS의 다양한 메소드가 어떤 식으로 저장이 되고 불러올 수 있는지를 알아보고자 한다.reference  https://dkwjdi.tistory.com/194  https://github.com/danbev/learning-v8/blob/master/notes/intro.md">
+    <meta itemprop="datePublished" content="2022-05-17T16:30:00+09:00">
+    
+
+    <div class="page__inner-wrap">
+      
+        <header>
+          <h1 id="page-title" class="page__title" itemprop="headline">
+            <a href="http://localhost:4000/v8/V8-introduction/" itemprop="url">[V8 Study] 00-introduction
+</a>
+          </h1>
+          
+
+  <p class="page__meta">
+    
+
+    
+
+    
+      
+      
+
+      <span class="page__meta-readtime">
+        <i class="far fa-clock" aria-hidden="true"></i>
+        
+          2 minute read
+        
+      </span>
+    
+  </p>
+
+
+        </header>
+      
+
+      <section class="page__content" itemprop="text">
+        
+          <aside class="sidebar__right ">
+            <nav class="toc">
+              <header><h4 class="nav__title"><i class="fas fa-file-alt"></i> On this page</h4></header>
+              <ul class="toc__menu"><li><a href="#summary">Summary</a></li><li><a href="#v8의-구조는-어떻게-되어-있을까">V8의 구조는 어떻게 되어 있을까?</a></li><li><a href="#v8만의-특징은-무엇이-있을까">V8만의 특징은 무엇이 있을까?</a></li><li><a href="#jit-compiler의-구조">JIT Compiler의 구조</a></li><li><a href="#turbofan은-어떤-조건으로-최적화하는-걸까">Turbofan은 어떤 조건으로 최적화하는 걸까?</a></li><li><a href="#next-topic">Next Topic</a></li><li><a href="#reference">reference</a></li></ul>
+            </nav>
+          </aside>
+        
+        <p><strong>[!] 우선적으로 한글로 작성하여 추후 번역할 예정.</strong></p>
+
+<h2 id="summary">Summary</h2>
+<p>우리가 대중적으로 사용하는 Google Chrome browser에는 웹페이지를 동적으로 실행시키기 위해 javascript가 구동될 수 있도록 지원하고 있다. 그렇다면, JS를 원활하게 실행하고 컴파일하는 역할은 어떤 것이 맡고 있을까? 이 챕터에서는 내가 공부했던 chromium javascript engine인 V8에 대해서 알아보고자 한다.</p>
+
+<h2 id="v8의-구조는-어떻게-되어-있을까">V8의 구조는 어떻게 되어 있을까?</h2>
+
+<p>V8같은 경우 Chrome 구동 시 하나의 프로세스로 실행되어 heap 및 stack 메모리 영역을 관리하면서 Javascript의 각종 변수와 메소드를 실행하는 가장 핵심적인 execution file로 동작한다. 이외에 Task/Callback queue, Microtask queue, WebAPI 등 다양한 요소가 Chromium browser를 구성하고 동작하는데 사용된다.</p>
+
+<p>가장 대표적인 역할은 javascript 코드를 컴파일된 컴퓨터에 최적화된 코드로 변환시켜 전달하게 된다는 것이다. 이때 <code class="language-plaintext highlighter-rouge">JIT(Just-In-Time) Compiler</code>라는 독창적인 컴파일러를 사용한다.</p>
+
+<h2 id="v8만의-특징은-무엇이-있을까">V8만의 특징은 무엇이 있을까?</h2>
+<p><img src="/images/2022-V8/intro/inter-comp.png" alt="inter-comp.png" /></p>
+
+<p>우선 인터프리터와 컴파일러에 대해 알아야 할 것이다.</p>
+<ol>
+  <li>인터프리터
+    <ul>
+      <li>장점 : 한 줄 한 줄 변환하기 때문에 실행 속도가 빠르다.</li>
+      <li>단점 : 자바스크립트 코드가 복잡해질수록 점점 속도가 느려진다. 예를 들어, 같은 코드를 여러차례 반복하는 반복문의 경우, 같은 결과를 반복하는 것임에도 불구하고 코드를 한 줄 한 줄 읽는 방식에 의해 그때그때 실행된다.</li>
+    </ul>
+  </li>
+  <li>컴파일러
+    <ul>
+      <li>장점 : 파일 전체를 한번에 읽어서 컴파일러는 작업을 단순화시킨다. 예를 들어 특정 함수를 10억번 반복해야 할 경우, 컴파일 과정에서 함수를 반복하는 것이 아니라 함수의 결과물을 반복하도록 컴파일 한다. 이처럼 불필요한 동작을 제거하는 컴파일러의 방식을 최적화, <code class="language-plaintext highlighter-rouge">optimization</code>이라고 한다.<br />
+(<em>인터프리터는 optimize하지 않는다</em> )</li>
+      <li>단점 : 코드를 바로 실행하지 않고, 코드 실행 전 전체를 컴파일 하는 과정이 필요하기 때문에 초기에 속도가 느릴 수 밖에 없다.</li>
+    </ul>
+  </li>
+</ol>
+
+<p>자바스크립트 엔진의 내부를 공부하다가 잠시 인터프리터와 컴파일러의 간단한 개념과 장단점을 짚어봤다. 그러면 과연 V8 엔진은 어떤 방식을 취했길래 다른 자바스크립트 엔진보다 더 빠르고 효율적으로 자바스크립트 명령을 수행할 수 있을까? 바로 여기에서 V8 엔진의 독특한 언어 변환 도구인 JIT Compiler가 들어온다. JIT은 Just In Time의 약자이다.</p>
+
+<h2 id="jit-compiler의-구조">JIT Compiler의 구조</h2>
+<p><img src="/images/2022-V8/intro/jit.png" alt="jit.png" /></p>
+
+<p>V8 엔진은 다음과 같은 구조로 되어 있다.</p>
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">Parser</code> : 코드를 Lexical Analysis라는 과정을 통해 <strong>토큰</strong>으로 분해한다.</li>
+  <li><code class="language-plaintext highlighter-rouge">AST(Abstract Syntax Tree)</code> : Parser에서 분해된 토큰을 바탕으로 추상적인 트리를 생성한다.</li>
+  <li><code class="language-plaintext highlighter-rouge">Ignition</code> : AST에서 나온 트리를 V8의 인터프리터인 ignition에게 전달하고 이것을 인터프리터는 bytecode로 변환시킨다. (High-level Lang to Low-level Lang)</li>
+  <li><code class="language-plaintext highlighter-rouge">TurboFan</code>, <code class="language-plaintext highlighter-rouge">Profiler</code> : bytecode를 실행하여 Human-readable Lang을 실행시키고, 그중 자주 사용되는 코드라고 판별된 코드 조각은 <code class="language-plaintext highlighter-rouge">TurboFan</code>으로 보내져 최적화를 수행하여 새로운 컴파일된 코드로 재구성된다. (이때 자주 사용되는 코드라는 말이 매우 추상적이므로 <code class="language-plaintext highlighter-rouge">Profiler</code> 라는 친구한테 사용 빈도 수 등을 수집하게끔 역할을 부여하고, 모인 데이터를 통해 Turbofan의 알고리즘대로 최적화를 한다)</li>
+</ol>
+
+<h2 id="turbofan은-어떤-조건으로-최적화하는-걸까">Turbofan은 어떤 조건으로 최적화하는 걸까?</h2>
+<ol>
+  <li>
+    <p>코드가 뜨겁고 안정적인 것, 쉽게 말하면 자주 호출되고(뜨겁고) 코드가 안 변함(안정적)이라는 것이다. 매번 같은 행동을 수행하는 반복문 내에 있는 코드 같은 경우가 여기에 해당하기 쉽다.</p>
+  </li>
+  <li>
+    <p>인터프리팅된 바이트 코드의 길이를 보고 특정 임계점을 넘기지 않으면 작은 함수라고 판단해서 최적화를 진행하는 것이다. 작고 단순한 함수는 크고 복잡한 함수보다 동작이 매우 추상적이거나 제한적인 확률이 높기 때문에 안정적이라고 볼 수 있다.</p>
+  </li>
+</ol>
+
+<p>[!] 그러나, 컴파일러는 100% 완벽하지 못하기 때문에 의도와 다르게 발적화(deoptimization)가 일어날 수도 있다.</p>
+
+<h2 id="next-topic">Next Topic</h2>
+<p>다음에는 V8에서 자료형이나 JS의 다양한 메소드가 어떤 식으로 저장이 되고 불러올 수 있는지를 알아보고자 한다.</p>
+
+<h2 id="reference">reference</h2>
+<ul>
+  <li><a href="https://dkwjdi.tistory.com/194">https://dkwjdi.tistory.com/194</a></li>
+  <li><a href="https://github.com/danbev/learning-v8/blob/master/notes/intro.md">https://github.com/danbev/learning-v8/blob/master/notes/intro.md</a></li>
+</ul>
+
+        
+      </section>
+
+      <footer class="page__meta">
+        
+        
+
+
+  
+
+
+  
+
+  <p class="page__taxonomy">
+    <strong><i class="fas fa-fw fa-folder-open" aria-hidden="true"></i> Categories: </strong>
+    <span itemprop="keywords">
+    
+      <a href="/categories/#v8" class="page__taxonomy-item p-category" rel="tag">V8</a>
+    
+    </span>
+  </p>
+
+
+        
+
+  <p class="page__date"><strong><i class="fas fa-fw fa-calendar-alt" aria-hidden="true"></i> Updated:</strong> <time class="dt-published" datetime="2022-05-17T16:30:00+09:00">May 17, 2022</time></p>
+
+      </footer>
+
+      <section class="page__share">
+  
+    <h4 class="page__share-title">Share on</h4>
+  
+
+  <a href="https://twitter.com/intent/tweet?text=%5BV8+Study%5D+00-introduction%20http%3A%2F%2Flocalhost%3A4000%2Fv8%2FV8-introduction%2F" class="btn btn--twitter" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter"><i class="fab fa-fw fa-twitter" aria-hidden="true"></i><span> Twitter</span></a>
+
+  <a href="https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Flocalhost%3A4000%2Fv8%2FV8-introduction%2F" class="btn btn--facebook" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook"><i class="fab fa-fw fa-facebook" aria-hidden="true"></i><span> Facebook</span></a>
+
+  <a href="https://www.linkedin.com/shareArticle?mini=true&url=http://localhost:4000/v8/V8-introduction/" class="btn btn--linkedin" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on LinkedIn"><i class="fab fa-fw fa-linkedin" aria-hidden="true"></i><span> LinkedIn</span></a>
+</section>
+
+
+      
+  <nav class="pagination">
+    
+      <a href="/life/list-after-graduate/" class="pagination--pager" title="Personal R&amp;D plan beginning from ‘now’
+">Previous</a>
+    
+    
+      <a href="/ctf/htb_businessctf_2022/" class="pagination--pager" title="HTB Business CTF 2022 : Dirty Money write-up (in progress)
+">Next</a>
+    
+  </nav>
+
+    </div>
+
+    
+  </article>
+
+  
+  
+    
+<div class="page__related">
+  
+  <h2 class="page__related-title">You may also enjoy</h2>
+  <div class="grid__wrapper">
+    
+      
+      
+
+
+
+<div class="grid__item">
+  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+    
+    <h2 class="archive__item-title no_toc" itemprop="headline">
+      
+        <a href="/ctf/htb_businessctf_2022/" rel="permalink">HTB Business CTF 2022 : Dirty Money write-up (in progress)
+</a>
+      
+    </h2>
+    
+
+  <p class="page__meta">
+    
+
+    
+
+    
+      
+      
+
+      <span class="page__meta-readtime">
+        <i class="far fa-clock" aria-hidden="true"></i>
+        
+          5 minute read
+        
+      </span>
+    
+  </p>
+
+
+    <p class="archive__item-excerpt" itemprop="description">Write-up IN PROGRESS ..
+작성중
+
+Summary
+Solved 3 pwn (including windows kernel exploitation), 3 crypto, 2 rev, 1 forensic. pwn focused on FSB attack or ezpz ker...</p>
+  </article>
+</div>
+
+    
+      
+      
+
+
+
+<div class="grid__item">
+  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+    
+    <h2 class="archive__item-title no_toc" itemprop="headline">
+      
+        <a href="/life/list-after-graduate/" rel="permalink">Personal R&amp;D plan beginning from ‘now’
+</a>
+      
+    </h2>
+    
+
+  <p class="page__meta">
+    
+
+    
+
+    
+      
+      
+
+      <span class="page__meta-readtime">
+        <i class="far fa-clock" aria-hidden="true"></i>
+        
+          less than 1 minute read
+        
+      </span>
+    
+  </p>
+
+
+    <p class="archive__item-excerpt" itemprop="description">UPDATED : 06 JUN 2023 19:45 UTC+9 KST
+
+This is my plan to be finished until/after graduating.
+
+Research
+
+  § must be finished until new year’s day §
+  
+    K...</p>
+  </article>
+</div>
+
+    
+      
+      
+
+
+
+<div class="grid__item">
+  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+    
+    <h2 class="archive__item-title no_toc" itemprop="headline">
+      
+        <a href="/note/web-note-update/" rel="permalink">web note (update 2021.10.27)
+</a>
+      
+    </h2>
+    
+
+  <p class="page__meta">
+    
+
+    
+
+    
+      
+      
+
+      <span class="page__meta-readtime">
+        <i class="far fa-clock" aria-hidden="true"></i>
+        
+          2 minute read
+        
+      </span>
+    
+  </p>
+
+
+    <p class="archive__item-excerpt" itemprop="description">post will be frequently updated
+
+SSTI (Server Side Template Injection)
+해당 취약점은 웹 프레임워크에서 사용되는 여러 가지 Template Engine에서 발생하며, 특별한 구문을 통해 RCE를 일으킬 수도 있다.
+This v...</p>
+  </article>
+</div>
+
+    
+      
+      
+
+
+
+<div class="grid__item">
+  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+    
+    <h2 class="archive__item-title no_toc" itemprop="headline">
+      
+        <a href="/life/start-again/" rel="permalink">Start Again
+</a>
+      
+    </h2>
+    
+
+  <p class="page__meta">
+    
+
+    
+
+    
+      
+      
+
+      <span class="page__meta-readtime">
+        <i class="far fa-clock" aria-hidden="true"></i>
+        
+          less than 1 minute read
+        
+      </span>
+    
+  </p>
+
+
+    <p class="archive__item-excerpt" itemprop="description">Start for 4th Blog
+</p>
+  </article>
+</div>
+
+    
+  </div>
+</div>
+
+  
+  
+</div>
+
+      
+    </div>
+
+    
+      <div class="search-content">
+        <div class="search-content__inner-wrap"><form class="search-content__form" onkeydown="return event.key != 'Enter';" role="search">
+    <label class="sr-only" for="search">
+      Enter your search term...
+    </label>
+    <input type="search" id="search" class="search-input" tabindex="-1" placeholder="Enter your search term..." />
+  </form>
+  <div id="results" class="results"></div></div>
+
+      </div>
+    
+
+    <div id="footer" class="page__footer">
+      <footer>
+        <!-- start custom footer snippets -->
+
+<!-- end custom footer snippets -->
+        <div class="page__footer-follow">
+  <ul class="social-icons">
+    
+      <li><strong>Follow:</strong></li>
+    
+
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+
+    
+      <li><a href="/feed.xml"><i class="fas fa-fw fa-rss-square" aria-hidden="true"></i> Feed</a></li>
+    
+  </ul>
+</div>
+
+<div class="page__footer-copyright">&copy; 2024 <a href="http://localhost:4000">st4rlight</a>. Powered by <a href="https://jekyllrb.com" rel="nofollow">Jekyll</a> &amp; <a href="https://mademistakes.com/work/minimal-mistakes-jekyll-theme/" rel="nofollow">Minimal Mistakes</a>.</div>
+
+      </footer>
+    </div>
+
+    
+  <script src="/assets/js/main.min.js"></script>
+
+
+
+
+<script src="/assets/js/lunr/lunr.min.js"></script>
+<script src="/assets/js/lunr/lunr-store.js"></script>
+<script src="/assets/js/lunr/lunr-en.js"></script>
+
+
+
+
+    
+
+  
+
+
+
+
+  </body>
+</html>
