@@ -11,7 +11,7 @@
     <meta charset="utf-8">
 
 <!-- begin _includes/seo.html --><title>[V8 Study] 00-introduction - Hacky Life &amp; Writeup</title>
-<meta name="description" content="[!] 우선적으로 한글로 작성하여 추후 번역할 예정.  Summary 우리가 대중적으로 사용하는 Google Chrome browser에는 웹페이지를 동적으로 실행시키기 위해 javascript가 구동될 수 있도록 지원하고 있다. 그렇다면, JS를 원활하게 실행하고 컴파일하는 역할은 어떤 것이 맡고 있을까? 이 챕터에서는 내가 공부했던 chromium javascript engine인 V8에 대해서 알아보고자 한다.  V8의 구조는 어떻게 되어 있을까?  V8같은 경우 Chrome 구동 시 하나의 프로세스로 실행되어 heap 및 stack 메모리 영역을 관리하면서 Javascript의 각종 변수와 메소드를 실행하는 가장 핵심적인 execution file로 동작한다. 이외에 Task/Callback queue, Microtask queue, WebAPI 등 다양한 요소가 Chromium browser를 구성하고 동작하는데 사용된다.  가장 대표적인 역할은 javascript 코드를 컴파일된 컴퓨터에 최적화된 코드로 변환시켜 전달하게 된다는 것이다. 이때 JIT(Just-In-Time) Compiler라는 독창적인 컴파일러를 사용한다.  V8만의 특징은 무엇이 있을까?   우선 인터프리터와 컴파일러에 대해 알아야 할 것이다.    인터프리터            장점 : 한 줄 한 줄 변환하기 때문에 실행 속도가 빠르다.       단점 : 자바스크립트 코드가 복잡해질수록 점점 속도가 느려진다. 예를 들어, 같은 코드를 여러차례 반복하는 반복문의 경우, 같은 결과를 반복하는 것임에도 불구하고 코드를 한 줄 한 줄 읽는 방식에 의해 그때그때 실행된다.           컴파일러            장점 : 파일 전체를 한번에 읽어서 컴파일러는 작업을 단순화시킨다. 예를 들어 특정 함수를 10억번 반복해야 할 경우, 컴파일 과정에서 함수를 반복하는 것이 아니라 함수의 결과물을 반복하도록 컴파일 한다. 이처럼 불필요한 동작을 제거하는 컴파일러의 방식을 최적화, optimization이라고 한다. (인터프리터는 optimize하지 않는다 )       단점 : 코드를 바로 실행하지 않고, 코드 실행 전 전체를 컴파일 하는 과정이 필요하기 때문에 초기에 속도가 느릴 수 밖에 없다.           자바스크립트 엔진의 내부를 공부하다가 잠시 인터프리터와 컴파일러의 간단한 개념과 장단점을 짚어봤다. 그러면 과연 V8 엔진은 어떤 방식을 취했길래 다른 자바스크립트 엔진보다 더 빠르고 효율적으로 자바스크립트 명령을 수행할 수 있을까? 바로 여기에서 V8 엔진의 독특한 언어 변환 도구인 JIT Compiler가 들어온다. JIT은 Just In Time의 약자이다.  JIT Compiler의 구조   V8 엔진은 다음과 같은 구조로 되어 있다.    Parser : 코드를 Lexical Analysis라는 과정을 통해 토큰으로 분해한다.   AST(Abstract Syntax Tree) : Parser에서 분해된 토큰을 바탕으로 추상적인 트리를 생성한다.   Ignition : AST에서 나온 트리를 V8의 인터프리터인 ignition에게 전달하고 이것을 인터프리터는 bytecode로 변환시킨다. (High-level Lang to Low-level Lang)   TurboFan, Profiler : bytecode를 실행하여 Human-readable Lang을 실행시키고, 그중 자주 사용되는 코드라고 판별된 코드 조각은 TurboFan으로 보내져 최적화를 수행하여 새로운 컴파일된 코드로 재구성된다. (이때 자주 사용되는 코드라는 말이 매우 추상적이므로 Profiler 라는 친구한테 사용 빈도 수 등을 수집하게끔 역할을 부여하고, 모인 데이터를 통해 Turbofan의 알고리즘대로 최적화를 한다)   Turbofan은 어떤 조건으로 최적화하는 걸까?         코드가 뜨겁고 안정적인 것, 쉽게 말하면 자주 호출되고(뜨겁고) 코드가 안 변함(안정적)이라는 것이다. 매번 같은 행동을 수행하는 반복문 내에 있는 코드 같은 경우가 여기에 해당하기 쉽다.           인터프리팅된 바이트 코드의 길이를 보고 특정 임계점을 넘기지 않으면 작은 함수라고 판단해서 최적화를 진행하는 것이다. 작고 단순한 함수는 크고 복잡한 함수보다 동작이 매우 추상적이거나 제한적인 확률이 높기 때문에 안정적이라고 볼 수 있다.      [!] 그러나, 컴파일러는 100% 완벽하지 못하기 때문에 의도와 다르게 발적화(deoptimization)가 일어날 수도 있다.  Next Topic 다음에는 V8에서 자료형이나 JS의 다양한 메소드가 어떤 식으로 저장이 되고 불러올 수 있는지를 알아보고자 한다.  reference    https://dkwjdi.tistory.com/194   https://github.com/danbev/learning-v8/blob/master/notes/intro.md">
+<meta name="description" content="useful browser engine process for beginner">
 
 
   <meta name="author" content="st4rlight (Ainsetin)">
@@ -24,10 +24,10 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:site_name" content="Hacky Life & Writeup">
 <meta property="og:title" content="[V8 Study] 00-introduction">
-<meta property="og:url" content="http://localhost:4000/v8/V8-introduction/">
+<meta property="og:url" content="http://localhost:4000/note/V8-introduction/">
 
 
-  <meta property="og:description" content="[!] 우선적으로 한글로 작성하여 추후 번역할 예정.  Summary 우리가 대중적으로 사용하는 Google Chrome browser에는 웹페이지를 동적으로 실행시키기 위해 javascript가 구동될 수 있도록 지원하고 있다. 그렇다면, JS를 원활하게 실행하고 컴파일하는 역할은 어떤 것이 맡고 있을까? 이 챕터에서는 내가 공부했던 chromium javascript engine인 V8에 대해서 알아보고자 한다.  V8의 구조는 어떻게 되어 있을까?  V8같은 경우 Chrome 구동 시 하나의 프로세스로 실행되어 heap 및 stack 메모리 영역을 관리하면서 Javascript의 각종 변수와 메소드를 실행하는 가장 핵심적인 execution file로 동작한다. 이외에 Task/Callback queue, Microtask queue, WebAPI 등 다양한 요소가 Chromium browser를 구성하고 동작하는데 사용된다.  가장 대표적인 역할은 javascript 코드를 컴파일된 컴퓨터에 최적화된 코드로 변환시켜 전달하게 된다는 것이다. 이때 JIT(Just-In-Time) Compiler라는 독창적인 컴파일러를 사용한다.  V8만의 특징은 무엇이 있을까?   우선 인터프리터와 컴파일러에 대해 알아야 할 것이다.    인터프리터            장점 : 한 줄 한 줄 변환하기 때문에 실행 속도가 빠르다.       단점 : 자바스크립트 코드가 복잡해질수록 점점 속도가 느려진다. 예를 들어, 같은 코드를 여러차례 반복하는 반복문의 경우, 같은 결과를 반복하는 것임에도 불구하고 코드를 한 줄 한 줄 읽는 방식에 의해 그때그때 실행된다.           컴파일러            장점 : 파일 전체를 한번에 읽어서 컴파일러는 작업을 단순화시킨다. 예를 들어 특정 함수를 10억번 반복해야 할 경우, 컴파일 과정에서 함수를 반복하는 것이 아니라 함수의 결과물을 반복하도록 컴파일 한다. 이처럼 불필요한 동작을 제거하는 컴파일러의 방식을 최적화, optimization이라고 한다. (인터프리터는 optimize하지 않는다 )       단점 : 코드를 바로 실행하지 않고, 코드 실행 전 전체를 컴파일 하는 과정이 필요하기 때문에 초기에 속도가 느릴 수 밖에 없다.           자바스크립트 엔진의 내부를 공부하다가 잠시 인터프리터와 컴파일러의 간단한 개념과 장단점을 짚어봤다. 그러면 과연 V8 엔진은 어떤 방식을 취했길래 다른 자바스크립트 엔진보다 더 빠르고 효율적으로 자바스크립트 명령을 수행할 수 있을까? 바로 여기에서 V8 엔진의 독특한 언어 변환 도구인 JIT Compiler가 들어온다. JIT은 Just In Time의 약자이다.  JIT Compiler의 구조   V8 엔진은 다음과 같은 구조로 되어 있다.    Parser : 코드를 Lexical Analysis라는 과정을 통해 토큰으로 분해한다.   AST(Abstract Syntax Tree) : Parser에서 분해된 토큰을 바탕으로 추상적인 트리를 생성한다.   Ignition : AST에서 나온 트리를 V8의 인터프리터인 ignition에게 전달하고 이것을 인터프리터는 bytecode로 변환시킨다. (High-level Lang to Low-level Lang)   TurboFan, Profiler : bytecode를 실행하여 Human-readable Lang을 실행시키고, 그중 자주 사용되는 코드라고 판별된 코드 조각은 TurboFan으로 보내져 최적화를 수행하여 새로운 컴파일된 코드로 재구성된다. (이때 자주 사용되는 코드라는 말이 매우 추상적이므로 Profiler 라는 친구한테 사용 빈도 수 등을 수집하게끔 역할을 부여하고, 모인 데이터를 통해 Turbofan의 알고리즘대로 최적화를 한다)   Turbofan은 어떤 조건으로 최적화하는 걸까?         코드가 뜨겁고 안정적인 것, 쉽게 말하면 자주 호출되고(뜨겁고) 코드가 안 변함(안정적)이라는 것이다. 매번 같은 행동을 수행하는 반복문 내에 있는 코드 같은 경우가 여기에 해당하기 쉽다.           인터프리팅된 바이트 코드의 길이를 보고 특정 임계점을 넘기지 않으면 작은 함수라고 판단해서 최적화를 진행하는 것이다. 작고 단순한 함수는 크고 복잡한 함수보다 동작이 매우 추상적이거나 제한적인 확률이 높기 때문에 안정적이라고 볼 수 있다.      [!] 그러나, 컴파일러는 100% 완벽하지 못하기 때문에 의도와 다르게 발적화(deoptimization)가 일어날 수도 있다.  Next Topic 다음에는 V8에서 자료형이나 JS의 다양한 메소드가 어떤 식으로 저장이 되고 불러올 수 있는지를 알아보고자 한다.  reference    https://dkwjdi.tistory.com/194   https://github.com/danbev/learning-v8/blob/master/notes/intro.md">
+  <meta property="og:description" content="useful browser engine process for beginner">
 
 
 
@@ -46,7 +46,7 @@
   
 
 
-<link rel="canonical" href="http://localhost:4000/v8/V8-introduction/">
+<link rel="canonical" href="http://localhost:4000/note/V8-introduction/">
 
 
 
@@ -319,7 +319,7 @@
 
   <article class="page" itemscope itemtype="https://schema.org/CreativeWork">
     <meta itemprop="headline" content="[V8 Study] 00-introduction">
-    <meta itemprop="description" content="[!] 우선적으로 한글로 작성하여 추후 번역할 예정.Summary우리가 대중적으로 사용하는 Google Chrome browser에는 웹페이지를 동적으로 실행시키기 위해 javascript가 구동될 수 있도록 지원하고 있다. 그렇다면, JS를 원활하게 실행하고 컴파일하는 역할은 어떤 것이 맡고 있을까? 이 챕터에서는 내가 공부했던 chromium javascript engine인 V8에 대해서 알아보고자 한다.V8의 구조는 어떻게 되어 있을까?V8같은 경우 Chrome 구동 시 하나의 프로세스로 실행되어 heap 및 stack 메모리 영역을 관리하면서 Javascript의 각종 변수와 메소드를 실행하는 가장 핵심적인 execution file로 동작한다. 이외에 Task/Callback queue, Microtask queue, WebAPI 등 다양한 요소가 Chromium browser를 구성하고 동작하는데 사용된다.가장 대표적인 역할은 javascript 코드를 컴파일된 컴퓨터에 최적화된 코드로 변환시켜 전달하게 된다는 것이다. 이때 JIT(Just-In-Time) Compiler라는 독창적인 컴파일러를 사용한다.V8만의 특징은 무엇이 있을까?우선 인터프리터와 컴파일러에 대해 알아야 할 것이다.  인터프리터          장점 : 한 줄 한 줄 변환하기 때문에 실행 속도가 빠르다.      단점 : 자바스크립트 코드가 복잡해질수록 점점 속도가 느려진다. 예를 들어, 같은 코드를 여러차례 반복하는 반복문의 경우, 같은 결과를 반복하는 것임에도 불구하고 코드를 한 줄 한 줄 읽는 방식에 의해 그때그때 실행된다.        컴파일러          장점 : 파일 전체를 한번에 읽어서 컴파일러는 작업을 단순화시킨다. 예를 들어 특정 함수를 10억번 반복해야 할 경우, 컴파일 과정에서 함수를 반복하는 것이 아니라 함수의 결과물을 반복하도록 컴파일 한다. 이처럼 불필요한 동작을 제거하는 컴파일러의 방식을 최적화, optimization이라고 한다.(인터프리터는 optimize하지 않는다 )      단점 : 코드를 바로 실행하지 않고, 코드 실행 전 전체를 컴파일 하는 과정이 필요하기 때문에 초기에 속도가 느릴 수 밖에 없다.      자바스크립트 엔진의 내부를 공부하다가 잠시 인터프리터와 컴파일러의 간단한 개념과 장단점을 짚어봤다. 그러면 과연 V8 엔진은 어떤 방식을 취했길래 다른 자바스크립트 엔진보다 더 빠르고 효율적으로 자바스크립트 명령을 수행할 수 있을까? 바로 여기에서 V8 엔진의 독특한 언어 변환 도구인 JIT Compiler가 들어온다. JIT은 Just In Time의 약자이다.JIT Compiler의 구조V8 엔진은 다음과 같은 구조로 되어 있다.  Parser : 코드를 Lexical Analysis라는 과정을 통해 토큰으로 분해한다.  AST(Abstract Syntax Tree) : Parser에서 분해된 토큰을 바탕으로 추상적인 트리를 생성한다.  Ignition : AST에서 나온 트리를 V8의 인터프리터인 ignition에게 전달하고 이것을 인터프리터는 bytecode로 변환시킨다. (High-level Lang to Low-level Lang)  TurboFan, Profiler : bytecode를 실행하여 Human-readable Lang을 실행시키고, 그중 자주 사용되는 코드라고 판별된 코드 조각은 TurboFan으로 보내져 최적화를 수행하여 새로운 컴파일된 코드로 재구성된다. (이때 자주 사용되는 코드라는 말이 매우 추상적이므로 Profiler 라는 친구한테 사용 빈도 수 등을 수집하게끔 역할을 부여하고, 모인 데이터를 통해 Turbofan의 알고리즘대로 최적화를 한다)Turbofan은 어떤 조건으로 최적화하는 걸까?      코드가 뜨겁고 안정적인 것, 쉽게 말하면 자주 호출되고(뜨겁고) 코드가 안 변함(안정적)이라는 것이다. 매번 같은 행동을 수행하는 반복문 내에 있는 코드 같은 경우가 여기에 해당하기 쉽다.        인터프리팅된 바이트 코드의 길이를 보고 특정 임계점을 넘기지 않으면 작은 함수라고 판단해서 최적화를 진행하는 것이다. 작고 단순한 함수는 크고 복잡한 함수보다 동작이 매우 추상적이거나 제한적인 확률이 높기 때문에 안정적이라고 볼 수 있다.  [!] 그러나, 컴파일러는 100% 완벽하지 못하기 때문에 의도와 다르게 발적화(deoptimization)가 일어날 수도 있다.Next Topic다음에는 V8에서 자료형이나 JS의 다양한 메소드가 어떤 식으로 저장이 되고 불러올 수 있는지를 알아보고자 한다.reference  https://dkwjdi.tistory.com/194  https://github.com/danbev/learning-v8/blob/master/notes/intro.md">
+    <meta itemprop="description" content="useful browser engine process for beginner">
     <meta itemprop="datePublished" content="2022-05-17T16:30:00+09:00">
     
 
@@ -327,26 +327,23 @@
       
         <header>
           <h1 id="page-title" class="page__title" itemprop="headline">
-            <a href="http://localhost:4000/v8/V8-introduction/" itemprop="url">[V8 Study] 00-introduction
+            <a href="http://localhost:4000/note/V8-introduction/" itemprop="url">[V8 Study] 00-introduction
 </a>
           </h1>
           
 
   <p class="page__meta">
     
-
-    
-
-    
       
-      
-
-      <span class="page__meta-readtime">
-        <i class="far fa-clock" aria-hidden="true"></i>
+      <span class="page__meta-date">
+        <i class="far fa-calendar-alt" aria-hidden="true"></i>
         
-          3 minute read
-        
+        <time datetime="2022-05-17T16:30:00+09:00">May 17, 2022</time>
       </span>
+    
+
+    
+
     
   </p>
 
@@ -445,7 +442,7 @@
     <strong><i class="fas fa-fw fa-folder-open" aria-hidden="true"></i> Categories: </strong>
     <span itemprop="keywords">
     
-      <a href="/categories/#v8" class="page__taxonomy-item p-category" rel="tag">V8</a>
+      <a href="/categories/#note" class="page__taxonomy-item p-category" rel="tag">note</a>
     
     </span>
   </p>
@@ -462,11 +459,11 @@
     <h4 class="page__share-title">Share on</h4>
   
 
-  <a href="https://twitter.com/intent/tweet?text=%5BV8+Study%5D+00-introduction%20http%3A%2F%2Flocalhost%3A4000%2Fv8%2FV8-introduction%2F" class="btn btn--twitter" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter"><i class="fab fa-fw fa-twitter" aria-hidden="true"></i><span> Twitter</span></a>
+  <a href="https://twitter.com/intent/tweet?text=%5BV8+Study%5D+00-introduction%20http%3A%2F%2Flocalhost%3A4000%2Fnote%2FV8-introduction%2F" class="btn btn--twitter" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter"><i class="fab fa-fw fa-twitter" aria-hidden="true"></i><span> Twitter</span></a>
 
-  <a href="https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Flocalhost%3A4000%2Fv8%2FV8-introduction%2F" class="btn btn--facebook" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook"><i class="fab fa-fw fa-facebook" aria-hidden="true"></i><span> Facebook</span></a>
+  <a href="https://www.facebook.com/sharer/sharer.php?u=http%3A%2F%2Flocalhost%3A4000%2Fnote%2FV8-introduction%2F" class="btn btn--facebook" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook"><i class="fab fa-fw fa-facebook" aria-hidden="true"></i><span> Facebook</span></a>
 
-  <a href="https://www.linkedin.com/shareArticle?mini=true&url=http://localhost:4000/v8/V8-introduction/" class="btn btn--linkedin" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on LinkedIn"><i class="fab fa-fw fa-linkedin" aria-hidden="true"></i><span> LinkedIn</span></a>
+  <a href="https://www.linkedin.com/shareArticle?mini=true&url=http://localhost:4000/note/V8-introduction/" class="btn btn--linkedin" onclick="window.open(this.href, 'window', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on LinkedIn"><i class="fab fa-fw fa-linkedin" aria-hidden="true"></i><span> LinkedIn</span></a>
 </section>
 
 
@@ -477,8 +474,7 @@
 ">Previous</a>
     
     
-      <a href="/ctf/htb_businessctf_2022/" class="pagination--pager" title="HTB Business CTF 2022 : Dirty Money write-up (in progress)
-">Next</a>
+      <a href="#" class="pagination--pager disabled">Next</a>
     
   </nav>
 
@@ -505,50 +501,6 @@
     
     <h2 class="archive__item-title no_toc" itemprop="headline">
       
-        <a href="/ctf/htb_businessctf_2022/" rel="permalink">HTB Business CTF 2022 : Dirty Money write-up (in progress)
-</a>
-      
-    </h2>
-    
-
-  <p class="page__meta">
-    
-
-    
-
-    
-      
-      
-
-      <span class="page__meta-readtime">
-        <i class="far fa-clock" aria-hidden="true"></i>
-        
-          7 minute read
-        
-      </span>
-    
-  </p>
-
-
-    <p class="archive__item-excerpt" itemprop="description">Write-up IN PROGRESS ..
-작성중
-
-Summary
-Solved 3 pwn (including windows kernel exploitation), 3 crypto, 2 rev, 1 forensic. pwn focused on FSB attack or ezpz ker...</p>
-  </article>
-</div>
-
-    
-      
-      
-
-
-
-<div class="grid__item">
-  <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
-    
-    <h2 class="archive__item-title no_toc" itemprop="headline">
-      
         <a href="/life/list-after-graduate/" rel="permalink">Personal R&amp;D plan beginning from ‘now’
 </a>
       
@@ -557,32 +509,22 @@ Solved 3 pwn (including windows kernel exploitation), 3 crypto, 2 rev, 1 forensi
 
   <p class="page__meta">
     
-
-    
-
-    
       
-      
-
-      <span class="page__meta-readtime">
-        <i class="far fa-clock" aria-hidden="true"></i>
+      <span class="page__meta-date">
+        <i class="far fa-calendar-alt" aria-hidden="true"></i>
         
-          less than 1 minute read
-        
+        <time datetime="2021-11-08T17:00:00+09:00">November 8, 2021</time>
       </span>
+    
+
+    
+
     
   </p>
 
 
-    <p class="archive__item-excerpt" itemprop="description">UPDATED : 06 JUN 2023 19:45 UTC+9 KST
-
-This is my plan to be finished until/after graduating.
-
-Research
-
-  § must be finished until new year’s day §
-  
-    K...</p>
+    <p class="archive__item-excerpt" itemprop="description">2022년 앞으로의 계획 및 마음가짐을 적었던 곳
+</p>
   </article>
 </div>
 
@@ -605,28 +547,22 @@ Research
 
   <p class="page__meta">
     
-
-    
-
-    
       
-      
-
-      <span class="page__meta-readtime">
-        <i class="far fa-clock" aria-hidden="true"></i>
+      <span class="page__meta-date">
+        <i class="far fa-calendar-alt" aria-hidden="true"></i>
         
-          3 minute read
-        
+        <time datetime="2021-10-27T10:00:00+09:00">October 27, 2021</time>
       </span>
+    
+
+    
+
     
   </p>
 
 
-    <p class="archive__item-excerpt" itemprop="description">post will be frequently updated
-
-SSTI (Server Side Template Injection)
-해당 취약점은 웹 프레임워크에서 사용되는 여러 가지 Template Engine에서 발생하며, 특별한 구문을 통해 RCE를 일으킬 수도 있다.
-This v...</p>
+    <p class="archive__item-excerpt" itemprop="description">web exploitation note by using many ways
+</p>
   </article>
 </div>
 
@@ -649,19 +585,16 @@ This v...</p>
 
   <p class="page__meta">
     
-
-    
-
-    
       
-      
-
-      <span class="page__meta-readtime">
-        <i class="far fa-clock" aria-hidden="true"></i>
+      <span class="page__meta-date">
+        <i class="far fa-calendar-alt" aria-hidden="true"></i>
         
-          less than 1 minute read
-        
+        <time datetime="2021-10-15T21:33:00+09:00">October 15, 2021</time>
       </span>
+    
+
+    
+
     
   </p>
 
@@ -747,6 +680,20 @@ This v...</p>
 
 
     
+  <script>
+    var disqus_config = function () {
+      this.page.url = "http://localhost:4000/note/V8-introduction/";  /* Replace PAGE_URL with your page's canonical URL variable */
+      this.page.identifier = "/note/V8-introduction"; /* Replace PAGE_IDENTIFIER with your page's unique identifier variable */
+    };
+    (function() { /* DON'T EDIT BELOW THIS LINE */
+      var d = document, s = d.createElement('script');
+      s.src = 'https://bww9641.disqus.com/embed.js';
+      s.setAttribute('data-timestamp', +new Date());
+      (d.head || d.body).appendChild(s);
+    })();
+  </script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
 
   
 
